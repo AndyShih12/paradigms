@@ -1,0 +1,6 @@
+torch
+diffusers
+transformers
+accelerate
+xformers
+pandas
