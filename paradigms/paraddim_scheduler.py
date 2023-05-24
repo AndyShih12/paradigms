@@ -3,7 +3,7 @@ from diffusers.schedulers.scheduling_ddim import DDIMSchedulerOutput, DDIMSchedu
 from typing import List, Tuple, Union, Optional
 import torch
 
-class BatchDDIMScheduler(DDIMScheduler):
+class ParaDDIMScheduler(DDIMScheduler):
     # careful when overriding __init__ function, can break things due to expected_keys parameter in configuration_utils
     # if necessary copy the whole init statement from parent class
     

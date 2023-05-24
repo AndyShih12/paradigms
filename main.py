@@ -9,9 +9,9 @@ from diffusers import DDPMScheduler
 from diffusers import DPMSolverMultistepScheduler
 from diffusers import StableDiffusionPipeline
 
-from paradigms.batch_ddpm_scheduler import BatchDDPMScheduler
-from paradigms.batch_ddim_scheduler import BatchDDIMScheduler
-from paradigms.batch_dpmsolver_scheduler import BatchDPMSolverMultistepScheduler
+from paradigms.paraddpm_scheduler import ParaDDPMScheduler
+from paradigms.paraddim_scheduler import ParaDDIMScheduler
+from paradigms.paradpmsolver_scheduler import ParaDPMSolverMultistepScheduler
 from paradigms.stablediffusion_paradigms import paradigms_forward
 
 TOPIC = "stablediffusion"
@@ -24,10 +24,10 @@ SCHEDULER_CONFIGS = [
     # [DDPMScheduler, 1000, f"{HOME_DIR}/imgs/{TOPIC}/ddpm%s.png", "ddpm", False, False],
     # [DDIMScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/ddim%s.png", "ddim", False, True],
     # [DPMSolverMultistepScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/dpmsolver%s.png", "dpmsolver", False, True],
-    [BatchDDIMScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/parawarmup%s.png", "parawarmup", True, True],
-    [BatchDDPMScheduler, 1000, f"{HOME_DIR}/imgs/{TOPIC}/paraddpm%s.png", "paraddpm", True, False],
-    [BatchDDIMScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/paraddim%s.png", "paraddim", True, True],
-    [BatchDPMSolverMultistepScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/paradpmsolver%s.png", "paradpmsolver", True, True],
+    [ParaDDIMScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/parawarmup%s.png", "parawarmup", True, True],
+    [ParaDDPMScheduler, 1000, f"{HOME_DIR}/imgs/{TOPIC}/paraddpm%s.png", "paraddpm", True, False],
+    [ParaDDIMScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/paraddim%s.png", "paraddim", True, True],
+    [ParaDPMSolverMultistepScheduler, 200, f"{HOME_DIR}/imgs/{TOPIC}/paradpmsolver%s.png", "paradpmsolver", True, True],
 ]
 
 def prepare_pipe(scfg):

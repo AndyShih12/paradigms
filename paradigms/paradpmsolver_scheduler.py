@@ -1,27 +1,10 @@
-# Copyright 2022 TSAIL Team and The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# DISCLAIMER: This file is strongly influenced by https://github.com/LuChengTHU/dpm-solver
-
 from typing import List, Tuple, Union
 import torch
 
 from diffusers.schedulers.scheduling_dpmsolver_multistep import DPMSolverMultistepScheduler
 from diffusers.schedulers.scheduling_utils import SchedulerOutput
 
-
-class BatchDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
+class ParaDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
     # careful when overriding __init__ function, can break things due to expected_keys parameter in configuration_utils
     # if necessary copy the whole init statement from parent class
     

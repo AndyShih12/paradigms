@@ -3,7 +3,7 @@ from diffusers.schedulers.scheduling_ddpm import DDPMSchedulerOutput, DDPMSchedu
 from typing import List, Tuple, Union
 import torch
 
-class BatchDDPMScheduler(DDPMScheduler):
+class ParaDDPMScheduler(DDPMScheduler):
     # careful when overriding __init__ function, can break things due to expected_keys parameter in configuration_utils
     # if necessary copy the whole init statement from parent class
 
