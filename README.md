@@ -2,7 +2,7 @@
 
 This repository contains code for the paper:
 
-[Parallel Sampling of Diffusion Models]() \
+[Parallel Sampling of Diffusion Models](https://arxiv.org/abs/2305.16317) \
 by Andy Shih, Suneel Belkhale, Stefano Ermon, Dorsa Sadigh, Nima Anari
 
 <br>
