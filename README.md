@@ -5,7 +5,32 @@ This repository contains code for the paper:
 [Parallel Sampling of Diffusion Models](https://arxiv.org/abs/2305.16317) \
 by Andy Shih, Suneel Belkhale, Stefano Ermon, Dorsa Sadigh, Nima Anari
 
-<br>
+-----
+## Update
+
+ParaDiGMS has been integrated into Huggingface Diffusers! 🥳🎉
+```
+pip install git+https://github.com/huggingface/diffusers.git
+```
+
+```python
+import torch
+from diffusers import DDPMParallelScheduler
+from diffusers import StableDiffusionParadigmsPipeline
+
+scheduler = DDPMParallelScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler")
+pipe = StableDiffusionParadigmsPipeline.from_pretrained(
+    "runwayml/stable-diffusion-v1-5", scheduler=scheduler, torch_dtype=torch.float16
+)
+pipe = pipe.to("cuda")
+ngpu, batch_per_device = torch.cuda.device_count(), 5
+pipe.wrapped_unet = torch.nn.DataParallel(pipe.unet, device_ids=[d for d in range(ngpu)])
+prompt = "a photo of an astronaut riding a horse on mars"
+
+image = pipe(prompt, parallel=ngpu * batch_per_device, num_inference_steps=1000).images[0]
+image.save("image.png")
+```
+-----
 
 ParaDiGMs accelerates sampling of diffusion models without sacrificing quality by running denoising steps in parallel. ParaDiGMs is most useful when sampling with a large number of denoising steps on multiple GPUs, giving a 2-4x wallclock speedup.
 
