@@ -164,13 +164,21 @@ def paradigms_forward(
     end_idx = parallel
     latents_time_evolution_buffer = torch.stack([latents] * (len(scheduler.timesteps)+1))
 
+    # We specify the error tolerance as a ratio of the scheduler's noise magnitude. We similarly compute the error tolerance
+    # outside of the denoising loop to avoid recomputing it at every step.
+    # We will be dividing the norm of the noise, so we store its inverse here to avoid a division at every step.
     noise_array = torch.zeros_like(latents_time_evolution_buffer)
     for j in range(len(scheduler.timesteps)):
         base_noise = torch.randn_like(latents)
         noise = (self.scheduler._get_variance(scheduler.timesteps[j]) ** 0.5) * base_noise
         noise_array[j] = noise.clone()
+
+    # We specify the error tolerance as a ratio of the scheduler's noise magnitude. We similarly compute the error tolerance
+    # outside of the denoising loop to avoid recomputing it at every step.
+    # We will be dividing the norm of the noise, so we store its inverse here to avoid a division at every step.
     inverse_variance_norm = 1. / torch.tensor([scheduler._get_variance(scheduler.timesteps[j]) for j in range(len(scheduler.timesteps))] + [0]).to(noise_array.device)
-    inverse_variance_norm /= noise_array[0].numel()
+    latent_dim = noise_array[0, 0].numel()
+    inverse_variance_norm = inverse_variance_norm[:, None] / latent_dim
 
     scaled_tolerance = (tolerance**2)
 
@@ -181,18 +189,22 @@ def paradigms_forward(
 
     while begin_idx < len(scheduler.timesteps):
         # these have shape (parallel_dim, 2*batch_size, ...)
-        # parallel_dim is at most parallel, but could be less if we are at the end of the timesteps
+        # parallel_len is at most parallel, but could be less if we are at the end of the timesteps
+        # we are processing batch window of timesteps spanning [begin_idx, end_idx)
         parallel_len = end_idx - begin_idx
 
         block_prompt_embeds = torch.stack([prompt_embeds] * parallel_len)
         block_latents = latents_time_evolution_buffer[begin_idx:end_idx]
-        block_t = scheduler.timesteps[begin_idx:end_idx]
-        t_vec = block_t[:, None].repeat(1, 2 * batch_size if do_classifier_free_guidance else batch_size)
+        block_t = scheduler.timesteps[begin_idx:end_idx, None].repeat(1, batch_size * num_images_per_prompt)
+        t_vec = block_t
+        if do_classifier_free_guidance:
+            t_vec = t_vec.repeat(1, 2)
 
         # expand the latents if we are doing classifier free guidance
         latent_model_input = torch.cat([block_latents] * 2, dim=1) if do_classifier_free_guidance else block_latents
         latent_model_input = self.scheduler.scale_model_input(latent_model_input, t_vec)
 
+        # if parallel_len is small, no need to use multiple GPUs
         net = self.wrapped_unet if parallel_len > 3 else self.unet
         # predict the noise residual
         model_output = net(
@@ -203,39 +215,59 @@ def paradigms_forward(
             return_dict=False,
         )[0]
 
+        per_latent_shape = model_output.shape[1:]
         if do_classifier_free_guidance:
-            noise_pred_uncond, noise_pred_text = model_output[::2], model_output[1::2]
+            model_output = model_output.reshape(
+                parallel_len, 2, batch_size * num_images_per_prompt, *per_latent_shape
+            )
+            noise_pred_uncond, noise_pred_text = model_output[:, 0], model_output[:, 1]
             model_output = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+        model_output = model_output.reshape(
+            parallel_len * batch_size * num_images_per_prompt, *per_latent_shape
+        )
 
         block_latents_denoise = scheduler.batch_step_no_noise(
             model_output=model_output,
-            timesteps=block_t,
+            timesteps=block_t.flatten(0, 1),
             sample=block_latents.flatten(0,1),
             **extra_step_kwargs,
         ).reshape(block_latents.shape)
 
 
         # back to shape (parallel_dim, batch_size, ...)
+        # now we want to add the pre-sampled noise
+        # parallel sampling algorithm requires computing the cumulative drift from the beginning
+        # of the window, so we need to compute cumulative sum of the deltas and the pre-sampled noises.
         delta = block_latents_denoise - block_latents
         cumulative_delta = torch.cumsum(delta, dim=0)
         cumulative_noise = torch.cumsum(noise_array[begin_idx:end_idx], dim=0)
 
-
+        # if we are using an ODE-like scheduler (like DDIM), we don't want to add noise
         if scheduler._is_ode_scheduler:
             cumulative_noise = 0
+
         block_latents_new = latents_time_evolution_buffer[begin_idx][None,] + cumulative_delta + cumulative_noise
-        cur_error = torch.linalg.norm((block_latents_new - latents_time_evolution_buffer[begin_idx+1:end_idx+1]).reshape(parallel_len, -1), dim=1).pow(2)
+        cur_error_vec = (block_latents_new - latents_time_evolution_buffer[begin_idx+1:end_idx+1]).reshape(parallel_len, batch_size * num_images_per_prompt, -1)
+        cur_error = torch.linalg.norm(cur_error_vec, dim=-1).pow(2)
         error_ratio = cur_error * inverse_variance_norm[begin_idx+1:end_idx+1]
 
         # find the first index of the vector error_ratio that is greater than error tolerance
-        error_ratio = torch.nn.functional.pad(error_ratio, (0,1), value=1e9) # handle the case when everything is below ratio
-        ind = torch.argmax( (error_ratio > scaled_tolerance).int() ).item()
+        # we can shift the window for the next iteration up to this index
+        error_ratio = torch.nn.functional.pad(
+            error_ratio, (0, 0, 0, 1), value=1e9
+        )  # handle the case when everything is below ratio, by padding the end of parallel_len dimension
+        any_error_at_time = torch.max(error_ratio > scaled_tolerance, dim=1).values.int()
+        ind = torch.argmax(any_error_at_time).item()
 
+        # compute the new begin and end idxs for the window
         new_begin_idx = begin_idx + min(1 + ind, parallel)
         new_end_idx = min(new_begin_idx + parallel, len(scheduler.timesteps))
 
+        # store the computed latents for the current window in the global buffer
         latents_time_evolution_buffer[begin_idx+1:end_idx+1] = block_latents_new
-        latents_time_evolution_buffer[end_idx:new_end_idx+1] = latents_time_evolution_buffer[end_idx][None,] # hopefully better than random initialization
+            # initialize the new sliding window latents with the end of the current window,
+            # should be better than random initialization
+        latents_time_evolution_buffer[end_idx:new_end_idx+1] = latents_time_evolution_buffer[end_idx][None,]
 
         begin_idx = new_begin_idx
         end_idx = new_end_idx
