@@ -33,7 +33,7 @@ SCHEDULER_CONFIGS = [
 def prepare_pipe(scfg):
     scheduler_cls, _, _, name, is_parallel, is_ode = scfg
 
-    scheduler = scheduler_cls.from_pretrained(MODEL_ID, subfolder="scheduler")
+    scheduler = scheduler_cls.from_pretrained(MODEL_ID, subfolder="scheduler", timestep_spacing="trailing")
     scheduler._is_ode_scheduler = is_ode
     scheduler._is_parallel = is_parallel
     scheduler.config.thresholding = False

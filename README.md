@@ -10,7 +10,7 @@ by Andy Shih, Suneel Belkhale, Stefano Ermon, Dorsa Sadigh, Nima Anari
 
 ParaDiGMS has been integrated into Huggingface Diffusers! 🥳🎉
 ```
-pip install git+https://github.com/huggingface/diffusers.git
+pip install diffusers==0.19.3
 ```
 
 ```python
@@ -18,7 +18,7 @@ import torch
 from diffusers import DDPMParallelScheduler
 from diffusers import StableDiffusionParadigmsPipeline
 
-scheduler = DDPMParallelScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler")
+scheduler = DDPMParallelScheduler.from_pretrained("runwayml/stable-diffusion-v1-5", subfolder="scheduler", timestep_spacing="trailing")
 pipe = StableDiffusionParadigmsPipeline.from_pretrained(
     "runwayml/stable-diffusion-v1-5", scheduler=scheduler, torch_dtype=torch.float16
 )
