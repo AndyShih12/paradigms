@@ -30,7 +30,14 @@ prompt = "a photo of an astronaut riding a horse on mars"
 image = pipe(prompt, parallel=ngpu * batch_per_device, num_inference_steps=1000).images[0]
 image.save("image.png")
 ```
+
+For best performance, use the improved parallel execution script implemented using torch multiprocessing.
+```
+python main_mp.py
+```
 -----
+
+## About
 
 ParaDiGMs accelerates sampling of diffusion models without sacrificing quality by running denoising steps in parallel. ParaDiGMs is most useful when sampling with a large number of denoising steps on multiple GPUs, giving a 2-4x wallclock speedup.
 

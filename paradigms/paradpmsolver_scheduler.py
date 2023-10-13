@@ -101,4 +101,8 @@ class ParaDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
 
             prev_sample = torch.cat([prev_sample1, prev_sample2, prev_sample3], dim=0)
 
+        # doing this otherwise set_timesteps throws an error
+        # if worried about efficiency, can override the set_timesteps function
+        self.lambda_t = self.lambda_t.to('cpu')
+
         return prev_sample
